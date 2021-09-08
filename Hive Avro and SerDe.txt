@@ -1,0 +1,68 @@
+-- 1. Create a Olympics Table
+create external table if not exists olympics (athlete varchar(30), age int, country varchar(40), year int, 
+date_of_event string, events varchar(30), gold int, silver int, bronze int, total int)
+row format delimited
+fields terminated by '\t'
+lines terminated by '\n'
+stored as textfile
+location '/olympics';
+
+--2. Find the Top 10 athlete with maximum total medals
+select athlete, events as event, sum(total) as medals from olympics 
+group by athlete, events order by medals DESC limit 10;
+
+
+--3. AVRO File 
+drop table if exists olympics_avro;
+
+CREATE TABLE if not exists olympics_avro 
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe'
+STORED AS INPUTFORMAT
+'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat'
+OUTPUTFORMAT
+'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat'
+tblproperties ('avro.schema.literal'='{
+"name" : "olympics_schema",
+"type" : "record",
+"fields" : [
+{"name":"athlete", "type":"string"}, 
+{"name":"age", "type":"int"},
+{"name":"country", "type":"string"}, 
+{"name":"year", "type" : "int"},
+{"name":"dateofevent", "type":"string"}, 
+{"name":"sport", "type":"string"},
+{"name":"gold", "type":"int"},
+{"name":"silver", "type":"int"},
+{"name":"bronze", "type":"int"},
+{"name":"total", "type":"int"}]
+}');
+
+INSERT OVERWRITE TABLE olympics_avro SELECT * FROM olympics LIMIT 50; 
+
+CREATE TABLE if not exists olympics_avro_null
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe'
+STORED AS INPUTFORMAT
+'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat'
+OUTPUTFORMAT
+'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat'
+tblproperties ('avro.schema.literal'='{
+"name" : "olympics_schema",
+"type" : "record",
+"fields" : [
+{"name":"athlete", "type":["string", "null"], "default":null},
+{"name":"age", "type":["int", "null"], "default":0},
+{"name":"country", "type":["string", "null"], "default":null},
+{"name":"year", "type" :["int", "null"], "default":0},
+{"name":"dateofevent", "type":["string", "null"], "default":null},
+{"name":"sport", "type":["string", "null"], "default":null},
+{"name":"gold", "type":["int", "null"], "default":0},
+{"name":"silver", "type":["int", "null"], "default" : 0},
+{"name":"bronze", "type":["int", "null"], "default" : 0},
+{"name":"total", "type":["int", "null"], "default" : 0}]
+}');
+
+INSERT OVERWRITE TABLE olympics_avro_null SELECT * FROM olympics;
+
+select athlete, sport as event, sum(total) as medals from olympics_avro_null 
+group by athlete, sport order by medals DESC limit 10;
+
